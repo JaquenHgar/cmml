@@ -1,0 +1,87 @@
+#!/usr/bin/env python3
+
+"""
+Usage:
+  make-video --spec=S --prefix=S --in=DIR --out=DIR
+  make-video -h
+
+Prepares files for a
+
+Options:
+  -h, --help  Show this message
+  --in=DIR    The input directory, will process all .jpg files in it that are not yet in the
+              output directory
+  --prefix=S  Comma separated prefixes to filter input files
+  --out=DIR   The output directory, will be created if not exists
+  --spec=S    The spec, e.g. 5x30,4x120 to make 5 30 second poses and 4 2 minute poses
+"""
+
+from PIL import Image, ImageDraw
+from pathlib import Path
+from docopt import docopt
+from random import shuffle
+import re
+
+spec_part = re.compile(r"(\d+)x(\d+)")
+
+def write(img: Image, index: int, n: int):
+  ImageDraw.Draw(img).text((10, 10), f"{index}/{n}", (0, 0, 0))
+
+
+def create_files(all_images: list, spec, dest_dir: Path):
+  shuffle(all_images)
+  nimg = len(all_images)
+  base = 0
+  global_frame_index = 0
+  for n, duration in spec:
+    for i in range(0, n):
+      index = (base + i) % nimg
+      img = all_images[index]
+      ten_secs = duration / 10
+      for frame in range(0, ten_secs):
+        copy = img.copy()
+        write(copy, frame, ten_secs)
+        dest = dest_dir / (f"img{global_frame_index:03d}.jpg")
+        copy.save(dest)
+    base = base + 1
+
+
+def parse_spec(spec_csv):
+  spec = []
+  for part in spec_csv.split(","):
+    match = spec_part.match(part)
+    if match:
+      n = int(match.group(1))
+      duration = int(match.group(2))
+      spec.append((n, duration))
+  return spec
+
+def load_images(prefixes: list, dir: Path):
+  images = []
+  for file in dir.glob("*.jpg"):
+    for p in prefixes:
+      if file.name.startswith(p):
+        img = Image.open(file)
+        images.append(img)
+  return images
+
+def main(argv):
+  indir = Path(argv["--in"])
+  outdir = Path(argv["--out"])
+  outdir.mkdir(parents=True, exist_ok=True)
+  prefixes = Path(argv["--prefix"]).split(",")
+  spec = parse_spec(argv["--spec"])
+
+  images = load_images(prefixes, indir)
+  print(f"loaded {len(images)} images")
+
+  create_files(images, spec, outdir)
+
+
+if __name__ == "__main__":
+  try:
+    argv = docopt(__doc__)
+    main(argv)
+  except KeyboardInterrupt:
+    pass
+    

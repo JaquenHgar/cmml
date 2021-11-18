@@ -1,0 +1,86 @@
+#!/usr/bin/env python3
+
+"""
+Usage:
+  resize [--prefix=S] --in=DIR --out=DIR
+  resizse -h
+
+Resizes images into Full HD format, adding a neutral grey boarder around it (either on the sides
+or top/bottom or nowhere).
+
+Options:
+  -h, --help  Show this message
+  --in=DIR    The input directory, will process all .jpg files in it that are not yet in the
+              output directory
+  --prefix=S  The file prefix to filter input files [default: ]
+  --out=DIR   The output directory, will be created if not exists
+"""
+
+from PIL import Image
+from pathlib import Path
+from docopt import docopt
+import re
+
+id_pattern = re.compile(r"(\d+)\.jpg")
+
+def resize(im: Image, width=1980, height=1080):
+  w_img, h_img = im.size
+  if w_img /width  > h_img / height:
+    wpercent = (width/float(w_img))
+    hsize = int((float(h_img)*float(wpercent)))
+    img = im.resize((width, hsize), Image.ANTIALIAS)
+    return img
+  else:
+    hpercent = (height/float(h_img))
+    wsize = int((float(w_img)*float(hpercent)))
+    img = im.resize((wsize,height), Image.ANTIALIAS)
+    return img
+
+def fill(im, width=1980, height=1080, fill_color=(128, 128, 128)):
+  w_img, h_img = im.size
+  new_im = Image.new('RGB', (width, height), fill_color)
+  new_im.paste(im, (int((width - w_img) / 2), int((height - h_img) / 2)))
+  print("final", new_im.size)
+  return new_im
+
+def prefix(name: str):
+  for i in range(0, len(name)):
+    if not name[i].isalpha():
+      return name[0:i].lower()
+  return name.lower()
+
+def id_of(name: str):
+  match = id_pattern.search(name)
+  if match:
+    fileid = int(match.group(1))
+    return f"{fileid:03d}"
+  return None
+
+def main(argv):
+  input_dir = Path(argv["--in"])
+  output_dir = Path(argv["--out"])
+  output_dir.mkdir(parents=True, exist_ok=True)
+
+  for file in input_dir.iterdir():
+    if file.suffix == ".jpg":
+      prefix = prefix(file.name)
+      fileid = id_of(file.name)
+      if fileid:
+        dest = output_dir / (prefix + "-" + fileid + ".jpg")
+        try:
+          img = Image.open(file)
+          img = resize(img)
+          img = fill(img)
+          print("saving", file.name, "-->", dest.name)
+          img.save(dest, format="JPEG")
+        except Exception as err:
+          print("error", err)
+          pass
+
+if __name__ == "__main__":
+  try:
+    argv = docopt(__doc__)
+    main(argv)
+  except KeyboardInterrupt:
+    pass
+    
