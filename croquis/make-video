@@ -46,6 +46,11 @@ def create_files(all_images: list, spec, dest_dir: Path, font):
         dest = dest_dir / (f"img{global_frame_index:03d}.jpg")
         copy.save(dest)
         global_frame_index = global_frame_index + 1
+      filler = Image.new('RGB', (1920, 1080), (0, 0, 0))
+      dest = dest_dir / (f"img{global_frame_index:03d}.jpg")
+      filler.save(dest)
+      global_frame_index = global_frame_index + 1
+
     base = base + 1
 
 
